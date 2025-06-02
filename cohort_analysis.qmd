@@ -1,0 +1,147 @@
+---
+title: "Assignment 4"
+format: pdf
+edit: visual
+author: Sarah Kim
+---
+
+```{r, include=FALSE}
+Sys.setenv(LANGUAGE="en")
+Sys.setlocale("LC_ALL", "en_US.UTF-8")
+#setwd("C:/Users/skimj/Desktop/GitHub/hrp203/Assignment4")
+```
+
+## I. Introduction
+
+Healthcare costs can be difficult to predict, as they are influenced by many different socioeconomic and health factors. In this report, I analyze the relationship between healthcare costs and a range of health and demographic characteristics, specifically smoking status, sex, age, and cardiac disease status. I find that smoking status, age, and cardiac disease are correlated with higher healthcare costs, whereas being female is associated with lower costs.
+
+Section II presents summary statistics of the cohort data, describing the composition of the sample and showing the distribution of the outcome. In Section III, I discuss the methods used for analysis, and Section IV follows with regression results and visual aids to help illustrate the relationship between healthcare costs and the contributing factors included in the cohort dataset. Section V concludes with a brief discussion of limitations and future direction of research.
+
+## II. Data
+
+The cohort dataset consists of individual-level information on healthcare costs, age, sex, smoking status, and cardiac disease status. The table below provides basic summary statistics of each variable in the sample:
+
+```{r}
+#| echo: false
+
+library(psych)
+
+cohort <- read.csv("raw-data/cohort.csv") 
+#attach(cohort)
+describe(cohort)
+
+```
+
+Of the 5000 individuals in the sample, 16% are smokers, 55% are female, and 22% have a history of cardiac problems. Ages range from 18 to 70, with a median age of 44. The median healthcare cost is approximately \$9165, and the mean is similarly close at around \$9150, suggesting that the distribution is not heavily skewed. Figure 1, which shows the distribution of healthcare costs, further supports that the data is approximately normally distributed.
+
+```{r, message=FALSE}
+#| echo: false
+
+library(ggplot2)
+
+ggplot(cohort, aes(x = cost)) + 
+  geom_freqpoly(bins = 10) +
+  labs(x = "Cost ($)",
+       title = "Figure 1. Cost Distribution") + 
+  theme_bw()
+#ggsave("output/costplot.png")
+
+```
+
+## III. Methods
+
+As Section II suggests that healthcare cost is not heavily skewed, a simple ordinary least squares (OLS) regression is used to estimate the relationship between cost and a set of demographic and health factors. The regression equation is specified as follows:
+
+$$
+cost_i = \beta_0 + \beta_1age_i + \beta_2female_i + \beta_3smoke_i + \beta_4cardiac_i + \epsilon_i
+$$ {#eq-1}
+
+where $i$ indexes individuals. The outcome of interest is healthcare cost, and the predictors include age, gender, smoking status, and presence of cardiac disease. Age is a continuous integer variable, representing an individual's age in years. All other variables are binary indicators, taking the value of 1 when the corresponding condition is true, and 0 otherwise (e.g., *female* = 1 if the individual is female, and 0 if male). As the cohort data does not include a time variable indicating when each observation was recorded, all variables are assumed to be measured at approximately the same point in time, which is reasonable given that the dataset includes information on age.
+
+Additionally, to explore potential differences in how age relates to healthcare costs across subgroups, I conduct a heterogeneity analysis by examining the association between age and cost separately for males and females, smokers and non-smokers, and individuals with and without cardiovascular conditions.
+
+## IV. Results
+
+The summary below shows the regression results for @eq-1:
+
+```{r}
+#| echo: false
+attach(cohort)
+reg <- lm(cost ~ age + female + smoke + cardiac, data=cohort)
+summary(reg)
+
+```
+
+The regression results indicate that age, smoking status, and presence of cardiac conditions are positively correlated with healthcare costs. Being a female is associated with reduced costs. Accounting for smoking status, gender, cardiac disease status, a person's age is associated with an average of \$15.78 higher cost for every additional year of age. Similarly, holding all else constant, females are associated with an average of \$252.95 lower healthcare costs, while smokers and patients with cardiac conditions incur on average \$541.95 and \$408.24 higher costs, respectively. For all four factors, the estimates are highly significant, with p-values approximately equal to 0.
+
+```{r, message=FALSE}
+#| echo: false
+# scatter and line plot - age and cost
+ggplot(cohort, aes(x = age, y = cost)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE) + 
+  labs(x = "Age (years)", y = "Cost ($)", 
+       title = "Figure 2. Plot of Age and Costs") + 
+  theme_bw()
+
+```
+
+Figure 2 displays a scatter plot of age and cost, with a fitted line graph representing a positive relationship between the two variables. Figure 3 displays the relationship between age and cost, separately by gender, smoking status, and cardiac disease status. Across all three subgroup comparisons, the fitted lines appear to be parallel, suggesting that the cost differences between groups remain relatively constant across age.
+
+```{r, message=FALSE}
+#| echo: false
+library(ggpubr) #load in library for multi-panel figures
+
+# separate color results by gender
+cohort$female_f <- factor(female, levels = c(0,1), labels = c("male", "female"))
+cohort$smoke_f <- factor(cohort$smoke, levels = c(0,1), labels = c("non-\nsmoker", "smoker"))
+cohort$cardiac_f <- factor(cohort$cardiac, levels = c(0,1), labels = c("no \ncardiac", "cardiac"))
+
+
+p1 <- ggplot(cohort, aes(x = age, y = cost, fill = female_f, color = female_f)) + 
+  geom_point(aes(fill = female_f), shape = 21) + 
+  scale_fill_manual(values = c("male" = "lightblue", "female" = "lightcoral"))  + 
+  geom_smooth(method = "lm", se = FALSE) + 
+  scale_color_manual(values = c("male" = "blue", "female" = "red")) +
+  labs(x = "Age (years)", y = "Cost ($)", 
+       fill = "Sex", color = "Sex", 
+       title = "A. By Gender") + 
+  theme_bw()
+p2 <- ggplot(cohort, aes(x = age, y = cost, fill = smoke_f, color = smoke_f)) + 
+  geom_point(aes(fill = smoke_f), shape = 21) + 
+  scale_fill_manual(values = c("non-\nsmoker" = "lightblue", "smoker" = "lightcoral"))  + 
+  geom_smooth(method = "lm", se = FALSE) + 
+  scale_color_manual(values = c("non-\nsmoker" = "blue", "smoker" = "red")) +
+  labs(x = "Age (years)", y = "Cost ($)", 
+       fill = "Status", color = "Status", 
+       title = "B. By Smoking Status") + 
+  theme_bw()
+p3 <- ggplot(cohort, aes(x = age, y = cost, fill = cardiac_f, color = cardiac_f)) + 
+  geom_point(aes(fill = cardiac_f), shape = 21) + 
+  scale_fill_manual(values = c("no \ncardiac" = "lightblue", "cardiac" = "lightcoral"))  + 
+  geom_smooth(method = "lm", se = FALSE) + 
+  scale_color_manual(values = c("no \ncardiac" = "blue", "cardiac" = "red")) +
+  labs(x = "Age (years)", y = "Cost ($)", 
+       fill = "Status", color = "Status", 
+       title = "C. By Cardiac Condition") + 
+  theme_bw()
+
+#put all three plots together into one multipanel plot
+multi_plot<- ggarrange(p1,p2,p3,
+                       #labels = c("By Gender", "smoke", "cardiac"),
+                       ncol = 2, nrow = 2, #adjust plot space 
+                       common.legend = F) #does the plot have a common legend
+multi_plot <- annotate_figure(multi_plot,
+                              top = text_grob("Figure 3. Plot of Age and Costs: Subgroup Analysis", color = "black", face = "bold", size = 11))
+multi_plot
+```
+
+## V. Discussion
+
+In conclusion, holding all else constant, one additional year of age is associated with an extra \$16 in healthcare costs. Ceteris paribus, females tend to spend \$253 less than males in healthcare costs, while smokers and patients with cardiac disease incur \$542 and \$408 more in costs, respectively.
+
+Additional data would help clarify the mechanisms underlying these findings. Since total healthcare costs are a function of both price and quantity (cost = price \* utilization), the observed gender difference could reflect several possibilities. Females may generally be healthier than their male counterparts and therefore require fewer healthcare services, or they may tend to receive care for conditions that are less costly to treat, even if they utilize services more frequently. It would be informative to have data on healthcare utilization, diagnoses, and treatment-specific costs to better understand the sources of these differences. Similarly, smokers and individuals with cardiac conditions may differ from their counterparts in ways not fully captured by the current dataset, such as unobserved health behaviors, access to care, or other demand- and supply-side factors influencing healthcare spending.
+
+A simple OLS regression allows for the exploration of associations but does not provide evidence of a causal relationship. OLS estimates may be biased due to confounding variables, reverse causality, or omitted variable bias. Establishing causality would require a study design that better accounts for these issues, such as randomized control trials, instrumental variables, or difference-in-differences methods to track changes over time. Estimating the causal effects of demographic or behavioral factors on healthcare costs would yield more insights for policymakers and healthcare providers to help reduce healthcare expenditures.
+
+I did not use generative AI technology (e.g., ChatGPT) to complete any portion of the work.
